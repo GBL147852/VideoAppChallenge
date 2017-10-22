@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Moymer Challenge</string>
+
+    <string name="moymer">Moymer</string>
+
+    <string name="video_perms_request">This app requests camera and audio permissions.</string>
+</resources>
