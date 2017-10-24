@@ -9,6 +9,61 @@
     android:background="#000"
     tools:context="com.example.gabriel.moymerchallenge.ShootActivity">
 
+    <LinearLayout
+        android:id="@+id/rotateContainer"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginTop="100sp"
+        android:orientation="horizontal"
+        android:layout_gravity="top"
+        android:gravity="center">
+        <Button
+            android:id="@+id/buttonRotate"
+            android:layout_width="150dp"
+            android:layout_height="50dp"
+            android:text="@string/rotate"
+            android:backgroundTint="@color/deactivatedButton"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/buttonContainer"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginBottom="85sp"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/buttonFeed"
+            android:text="@string/feed"
+            android:layout_width="100sp"
+            android:layout_height="match_parent"
+            android:backgroundTint="@color/deactivatedButton"
+            android:textAlignment="center"
+            android:gravity="center|fill_horizontal"/>
+
+        <Button
+            android:id="@+id/buttonShoot"
+            android:text="@string/shoot"
+            android:layout_width="100sp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="50sp"
+            android:textAlignment="center"
+            android:gravity="center|fill_horizontal"
+            android:backgroundTint="@color/activatedButton"
+            android:textColor="@android:color/white"
+            />
+    </LinearLayout>
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/recording_fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="150sp"
+        android:clickable="true" />
+
     <!-- This FrameLayout insets its children based on system windows using
     android:fitsSystemWindows. -->
     <FrameLayout
@@ -16,7 +71,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="true">
-
         <LinearLayout
             android:id="@+id/fullscreen_content_controls"
             style="?metaButtonBarStyle"
@@ -26,18 +80,6 @@
             android:background="@color/black_overlay"
             android:orientation="horizontal"
             tools:ignore="UselessParent">
-
-
-
         </LinearLayout>
-
     </FrameLayout>
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/recording_fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal|bottom"
-        android:layout_marginBottom="50sp"
-        android:clickable="true" />
-
 </FrameLayout>

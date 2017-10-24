@@ -21,6 +21,7 @@ public class MoymerTextureView extends TextureView {
         super(context, attrs, defStyleAttr);
     }
 
+    // Changes TextureView aspect ratio, making it responsible to many sizes
     public void setAspectRatio(int width, int height) {
         if (width < 0 || height < 0) {
             throw new IllegalArgumentException("Size cannot be negative.");

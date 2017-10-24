@@ -8,8 +8,11 @@ import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
@@ -26,72 +29,110 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.util.Size;
+import android.util.SparseIntArray;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 
 public class CameraFragment extends Fragment
         implements View.OnClickListener, FragmentCompat.OnRequestPermissionsResultCallback {
 
+    // Video permissions constants
     private static final String[] VIDEO_PERMISSIONS = {
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
     };
 
-    //Angle of device, in degrees
+    // Default orientations. Font: Google Samples.
+    private static final int SENSOR_ORIENTATION_DEFAULT_DEGREES = 90;
+    private static final int SENSOR_ORIENTATION_INVERSE_DEGREES = 270;
+    private static final SparseIntArray DEFAULT_ORIENTATIONS = new SparseIntArray();
+    private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
+
+    static {
+        DEFAULT_ORIENTATIONS.append(Surface.ROTATION_0, 90);
+        DEFAULT_ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        DEFAULT_ORIENTATIONS.append(Surface.ROTATION_180, 270);
+        DEFAULT_ORIENTATIONS.append(Surface.ROTATION_270, 180);
+    }
+
+    static {
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_0, 270);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_90, 180);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_180, 90);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_270, 0);
+    }
+
+    // Angle of device, in degrees
     private Integer mSensorOrientation;
 
-    //Class name, for use in Permission Request
+    // Class name, for use in Permission Request
     private static final String TAG = "CameraFragment";
 
-    //Constant for requesting video permissions
+    // Constant for requesting video permissions
     private static final int REQUEST_VIDEO_PERMISSIONS = 1;
 
-    //Dialog Fragment name
+    // Dialog Fragment name
     private static final String FRAGMENT_DIALOG = "dialog";
 
     // A MoymerTextureView for camera preview.
     private MoymerTextureView mTextureView;
 
+    // Selected camera. 0 for back, 1 for front
+    private int selectedCamera = 0;
+
     // The camera device reference
     private CameraDevice mCameraDevice;
 
-    //The capture session reference
+    // The capture session reference
     private CameraCaptureSession mPreviewSession;
 
-    //Builder for Camera Preview
+    // Builder for Camera Preview
     private CaptureRequest.Builder mPreviewBuilder;
 
-    //Size fo camera preview
+    // Size fo camera preview
     private Size mPreviewSize;
 
-    //Size of recorded video (output)
+    // Size of recorded video (output)
     private Size mVideoSize;
 
-    //Boolean that indicates if we are recording video
-    private boolean mRecording;
-
-    //Thread that run tasks, preventing the UI block
+    // Thread that run tasks, preventing the UI block
     private HandlerThread mBackgroundThread;
 
-    //Handler of background tasks
+    // Handler of background tasks
     private Handler mBackgroundHandler;
 
-    //The video recorder which will output our video
+    // The video recorder which will output our video
     private MediaRecorder videoRecorder;
 
-    //Semaphore to prevent the app for exiting without closing the camera
+    // The video absolute path inside the phone
+    private String mNextVideoAbsolutePath;
+
+    // Semaphore to prevent the app for exiting without closing the camera
     private Semaphore cameraSemaphore = new Semaphore(1);
+
+    // Recording button
+    private FloatingActionButton mRecordingFAB;
+
+    // Feed, Shoot and rotate buttons
+    private Button mFeed, mShoot, mRotate;
 
     // Handles events of the MoymerTextureView
     private TextureView.SurfaceTextureListener surfaceTextureListener =
@@ -118,7 +159,7 @@ public class CameraFragment extends Fragment
                 }
             };
 
-    //Events of CameraDevice, that will be treated here
+    // Events of CameraDevice, that will be treated here
     private CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
 
         @Override
@@ -147,23 +188,24 @@ public class CameraFragment extends Fragment
         }
     };
 
+    // onClick for buttons. Not used.
     @Override
-    public void onClick(View view) {
+    public void onClick(View view) { }
 
-    }
-
+    // Inflate camera preview after creating, inserting the TextureView
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         return inflater.inflate(R.layout.camera_preview, container, false);
     }
 
-    //Get TextureView after the view creation
+    // Get TextureView after the view creation
     @Override
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         mTextureView = view.findViewById(R.id.camera_preview);
     }
 
+    // On exiting the activity, close the camera safely
     @Override
     public void onPause() {
         closeCamera();
@@ -175,6 +217,46 @@ public class CameraFragment extends Fragment
     public void onResume() {
         super.onResume();
         startBackgroundThread();
+
+        //UI customizing
+        mRecordingFAB = getActivity().findViewById(R.id.recording_fab);
+        mRecordingFAB.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
+        mShoot = getActivity().findViewById(R.id.buttonShoot);
+        mFeed = getActivity().findViewById(R.id.buttonFeed);
+        mRotate = getActivity().findViewById(R.id.buttonRotate);
+
+        getActivity().findViewById(R.id.buttonContainer).bringToFront();
+        getActivity().findViewById(R.id.rotateContainer).bringToFront();
+
+        // Toggle between front and back cameras
+        mRotate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                rotateCamera();
+            }
+        });
+
+        // Setting up "hold to record, release to stop" feature
+        mRecordingFAB.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        startRecordingVideo();
+                        mRecordingFAB.setBackgroundTintList(ColorStateList.valueOf(Color.RED));
+                        mRotate.setVisibility(View.INVISIBLE);
+                        mFeed.setVisibility(View.INVISIBLE);
+                        mShoot.setVisibility(View.INVISIBLE);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        stopRecordingVideo();
+                        return true;
+                }
+                return false;
+            }
+        });
+
         if (mTextureView.isAvailable()) {
             openCamera(mTextureView.getWidth(), mTextureView.getHeight());
         } else {
@@ -182,14 +264,26 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Function for Rotate Camera button. Changes from front camera to back camera and vice-versa.
+    private void rotateCamera(){
+        closeCamera();
+        stopBackgroundThread();
+        selectedCamera = -selectedCamera + 1;
+        startBackgroundThread();
+        openCamera(mTextureView.getWidth(), mTextureView.getHeight());
+    }
+
+    // Returns an instance for the CameraFragment
     public static CameraFragment newInstance() {
         return new CameraFragment();
     }
 
+    // Set up the Capture Request for calling the Android camera
     private void setUpCaptureRequestBuilder(CaptureRequest.Builder builder) {
         builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
     }
 
+    // Close our camera preview session
     private void closePreviewSession() {
         if (mPreviewSession != null) {
             mPreviewSession.close();
@@ -197,6 +291,7 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Calculates the best scale and rotation for our camera preview
     private void transformTextureView(int textureViewWidth, int textureViewHeight) {
         Activity activity = getActivity();
         if (null == mTextureView || null == mPreviewSize || null == activity) {
@@ -220,7 +315,7 @@ public class CameraFragment extends Fragment
         mTextureView.setTransform(matrix);
     }
 
-    //Open the preview camera and prepare the recording settings
+    // Open the preview camera and prepare the recording settings
     private void openCamera(int cameraWidth, int cameraHeight) {
         if (!hasPermissionsGranted(VIDEO_PERMISSIONS)) {
             requestVideoPermissions();
@@ -228,7 +323,7 @@ public class CameraFragment extends Fragment
         }
         CameraManager manager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
         try {
-            String cameraId = manager.getCameraIdList()[1];
+            String cameraId = manager.getCameraIdList()[selectedCamera];
 
             // Choose the sizes for camera preview and video recording
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
@@ -268,7 +363,7 @@ public class CameraFragment extends Fragment
         }
     }
 
-    //Closes the camera preview, and ends the recording
+    // Closes the camera preview, and ends the recording
     private void closeCamera(){
         try {
             cameraSemaphore.acquire();
@@ -288,6 +383,7 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Starts our TextureView with the camera preview
     private void startPreview(){
         closePreviewSession();
         SurfaceTexture texture = mTextureView.getSurfaceTexture();
@@ -316,6 +412,7 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Update the preview frames
     private void updatePreview() {
         if (null == mCameraDevice) {
             return;
@@ -330,6 +427,7 @@ public class CameraFragment extends Fragment
         }
     }
 
+    //Checks if our application already has video permissions
     private boolean hasPermissionsGranted(String[] permissions) {
         for (String permission : permissions) {
             if (ActivityCompat.checkSelfPermission(getActivity(), permission)
@@ -340,6 +438,7 @@ public class CameraFragment extends Fragment
         return true;
     }
 
+    //Checks if our application should show the request permission
     private boolean shouldShowRequestPermissionRationale(String[] permissions) {
         for (String permission : permissions) {
             if (FragmentCompat.shouldShowRequestPermissionRationale(this, permission)) {
@@ -349,6 +448,7 @@ public class CameraFragment extends Fragment
         return false;
     }
 
+    // Asks the user if he permits video recording
     private void requestVideoPermissions() {
         if (shouldShowRequestPermissionRationale(VIDEO_PERMISSIONS)) {
             new ConfirmationDialog().show(getChildFragmentManager(), FRAGMENT_DIALOG);
@@ -357,6 +457,7 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Shows the warning if the video recording permission is not granted by the user
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -379,12 +480,14 @@ public class CameraFragment extends Fragment
         }
     }
 
+    // Makes the camera wait for recording, initializing the camera preview
     private void startBackgroundThread(){
         mBackgroundThread = new HandlerThread("CameraBackground");
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
     }
 
+    // Quits the camera preview, removing the camera from preview
     private void stopBackgroundThread(){
         mBackgroundThread.quitSafely();
         try {
@@ -396,6 +499,108 @@ public class CameraFragment extends Fragment
         }
     }
 
+    //Recording functions
+    //Configure the media recorder we will use
+    private void configureVideoRecorder() throws IOException {
+        final Activity activity = getActivity();
+        if (null == activity) {
+            return;
+        }
+
+        videoRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        videoRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        videoRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        if (mNextVideoAbsolutePath == null || mNextVideoAbsolutePath.isEmpty()) {
+            mNextVideoAbsolutePath = getVideoOutputPath(getActivity());
+        }
+        videoRecorder.setOutputFile(mNextVideoAbsolutePath);
+        videoRecorder.setVideoEncodingBitRate(10000000);
+        videoRecorder.setVideoFrameRate(30);
+        videoRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
+        videoRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        videoRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        switch (mSensorOrientation) {
+            case SENSOR_ORIENTATION_DEFAULT_DEGREES:
+                videoRecorder.setOrientationHint(DEFAULT_ORIENTATIONS.get(rotation));
+                break;
+            case SENSOR_ORIENTATION_INVERSE_DEGREES:
+                videoRecorder.setOrientationHint(INVERSE_ORIENTATIONS.get(rotation));
+                break;
+        }
+        videoRecorder.prepare();
+    }
+
+    //Get the path where the video will be saved
+    private String getVideoOutputPath(Context context) {
+        final File dir = context.getExternalFilesDir(null);
+        return (dir == null ? "" : (dir.getAbsolutePath() + "/"))
+                + System.currentTimeMillis() + ".mp4";
+    }
+
+    // Starts recording the video
+    private void startRecordingVideo() {
+        if (null == mCameraDevice || !mTextureView.isAvailable() || null == mPreviewSize) {
+            return;
+        }
+        try {
+            closePreviewSession();
+            configureVideoRecorder();
+            videoRecorder.start();
+            SurfaceTexture texture = mTextureView.getSurfaceTexture();
+            assert texture != null;
+            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+            mPreviewBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+            List<Surface> surfaces = new ArrayList<>();
+
+            // Set up Surface for the camera preview
+            Surface previewSurface = new Surface(texture);
+            surfaces.add(previewSurface);
+            mPreviewBuilder.addTarget(previewSurface);
+
+            // Set up Surface for the MediaRecorder
+            Surface recorderSurface = videoRecorder.getSurface();
+            surfaces.add(recorderSurface);
+            mPreviewBuilder.addTarget(recorderSurface);
+
+            // Start a capture session
+            // Once the session starts, we can update the UI and start recording
+            mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
+
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    mPreviewSession = cameraCaptureSession;
+                    updatePreview();
+                }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    Activity activity = getActivity();
+                    if (null != activity) {
+                        Toast.makeText(activity, "Failed", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }, mBackgroundHandler);
+        } catch (CameraAccessException | IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    // Stops the video recording, saving the video and then
+    // going to ShowVideoActivity to show the video in loop
+    private void stopRecordingVideo() {
+        // Stop recording, back to initial state
+        videoRecorder.stop();
+
+        //Go to ShowVideoActivity, sending the recently recorded video via Intent
+        Intent showRecordedVideo = new Intent(getActivity().getApplicationContext(),ShowVideoActivity.class);
+        showRecordedVideo.putExtra("path", mNextVideoAbsolutePath);
+        startActivity(showRecordedVideo);
+        getActivity().finish();
+    }
+
+    //The error dialog fragment class
     public static class ErrorDialog extends DialogFragment {
 
         private static final String ARG_MESSAGE = "message";
@@ -424,6 +629,7 @@ public class CameraFragment extends Fragment
 
     }
 
+    //The confirmation dialog fragment class
     public static class ConfirmationDialog extends DialogFragment {
 
         @Override

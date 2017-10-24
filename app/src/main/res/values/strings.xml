@@ -3,5 +3,16 @@
 
     <string name="moymer">Moymer</string>
 
+    <string name="feed">Feed</string>
+    <string name="shoot">Shoot</string>
+    <string name="save">Save</string>
+    <string name="rotate">Rotate camera</string>
+
     <string name="video_perms_request">This app requests camera and audio permissions.</string>
+
+    <string name="title_activity_show_video">ShowVideoActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+
+    <string name="title_activity_feed">FeedActivity</string>
 </resources>
