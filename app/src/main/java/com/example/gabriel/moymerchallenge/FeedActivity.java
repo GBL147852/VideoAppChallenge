@@ -1,12 +1,28 @@
 package com.example.gabriel.moymerchallenge;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Intent;
+import android.gesture.Gesture;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.support.v4.view.GestureDetectorCompat;
+import android.support.v4.view.MotionEventCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.VideoView;
+
+import java.io.File;
+import java.util.ArrayList;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -31,7 +47,20 @@ public class FeedActivity extends AppCompatActivity {
      */
     private static final int UI_ANIMATION_DELAY = 300;
     private final Handler mHideHandler = new Handler();
+
+    //Container of mVideoView
     private View mContentView;
+
+    //Video controlling global variables
+    private int videoID;
+    private VideoView mVideoView;
+    private ArrayList<String> videoPathList;
+
+    //Handlers for swiping
+    private float y0, y1;
+    private float x0, x1;
+    private final static float MIN_SWIPE = 100;
+
     private final Runnable mHidePart2Runnable = new Runnable() {
         @SuppressLint("InlinedApi")
         @Override
@@ -58,7 +87,6 @@ public class FeedActivity extends AppCompatActivity {
             if (actionBar != null) {
                 actionBar.show();
             }
-            mControlsView.setVisibility(View.VISIBLE);
         }
     };
     private boolean mVisible;
@@ -91,21 +119,95 @@ public class FeedActivity extends AppCompatActivity {
 
         mVisible = true;
         mControlsView = findViewById(R.id.fullscreen_content_controls);
-        mContentView = findViewById(R.id.fullscreen_content);
+        mContentView = findViewById(R.id.video_view);
+        mVideoView = (VideoView) mContentView;
 
-
-        // Set up the user interaction to manually show or hide the system UI.
-        mContentView.setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.buttonShoot).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                toggle();
+            public void onClick(View v) {
+                Intent goToShoot = new Intent(getApplicationContext(), ShootActivity.class);
+                startActivity(goToShoot);
+                finish();
             }
         });
 
-        // Upon interacting with UI controls, delay any scheduled hide()
-        // operations to prevent the jarring behavior of controls going away
-        // while interacting with the UI.
-        findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
+        videoPathList = new ArrayList<>();
+        File dir = getApplicationContext().getExternalFilesDir(null);
+        for(File f: dir.listFiles()){
+            if(f.isFile())
+                videoPathList.add(f.getAbsolutePath());
+        }
+        if(videoPathList.size() > 0) {
+            mVideoView.setVideoURI(Uri.parse(videoPathList.get(0)));
+            videoID = 0;
+            mVideoView.start();
+
+            //Swipe detection, using y axis
+            mVideoView.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch(event.getAction()){
+                        case MotionEvent.ACTION_DOWN:
+                            y0 = event.getY();
+                            x0 = event.getX();
+                            break;
+                        case MotionEvent.ACTION_UP:
+                            y1 = event.getY();
+                            x1 = event.getX();
+                            float deltaY = y1 - y0;
+                            float deltaX = x1 - x0;
+                            if(Math.abs(deltaY) > MIN_SWIPE){
+                                //Swipe down
+                                if(deltaY > 0){
+                                    previousVideo();
+                                //Swipe Up
+                                }else{
+                                    nextVideo();
+                                }
+                            }else if(Math.abs(deltaX) > MIN_SWIPE){
+                                //Swipe right
+                                if(deltaX < 0){
+                                    Intent goToShoot = new Intent(getApplicationContext(), ShootActivity.class);
+                                    startActivity(goToShoot);
+                                    finish();
+                                }
+                            }
+                            break;
+                    }
+                    return true;
+                }
+            });
+
+            // Enables Looping
+            mVideoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mp) {
+                    mp.setLooping(true);
+                }
+            });
+
+
+        }
+    }
+
+    private void nextVideo(){
+        if(videoID < videoPathList.size()-1) {
+            mVideoView.pause();
+            mVideoView.suspend();
+            videoID++;
+            mVideoView.setVideoURI(Uri.parse(videoPathList.get(videoID)));
+            mVideoView.start();
+        }
+    }
+
+    private void previousVideo(){
+        if(videoID > 0) {
+            mVideoView.pause();
+            mVideoView.suspend();
+            videoID--;
+            mVideoView.setVideoURI(Uri.parse(videoPathList.get(videoID)));
+            mVideoView.start();
+        }
     }
 
     @Override

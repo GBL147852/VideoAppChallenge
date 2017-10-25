@@ -99,6 +99,7 @@ public class ShowVideoActivity extends AppCompatActivity {
                 }
             });
 
+            mVideoPlayer.requestFocus();
             // Initialize the video
             mVideoPlayer.start();
         }catch (Exception e){

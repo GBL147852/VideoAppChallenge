@@ -2,30 +2,66 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0099cc"
+    android:background="#000"
     tools:context="com.example.gabriel.moymerchallenge.FeedActivity">
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"
+        android:layout_gravity="bottom"
+        android:gravity="bottom"
+        android:textAlignment="center"
+        android:text="@string/swipe_info"/>
     <!-- The primary full-screen view. This can be replaced with whatever view
          is needed to present your content, e.g. VideoView, SurfaceView,
          TextureView, etc. -->
-    <TextView
-        android:id="@+id/fullscreen_content"
+    <!-- Video view from feed. Swipe down/up for more. -->
+    <VideoView
+        android:id="@+id/video_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:gravity="center"
-        android:keepScreenOn="true"
-        android:text="@string/dummy_content"
-        android:textColor="#33b5e5"
-        android:textSize="50sp"
-        android:textStyle="bold" />
+        android:keepScreenOn="true" />
 
-    <!-- This FrameLayout insets its children based on system windows using
-         android:fitsSystemWindows. -->
+    <!-- Navigation buttons (Feed/Shoot) -->
+    <LinearLayout
+        android:id="@+id/buttonContainer"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginBottom="85sp"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/buttonFeed"
+            android:text="@string/feed"
+            android:layout_width="100sp"
+            android:layout_height="match_parent"
+            android:backgroundTint="@color/activatedButton"
+            android:textAlignment="center"
+            android:gravity="center|fill_horizontal"/>
+
+        <Button
+            android:id="@+id/buttonShoot"
+            android:text="@string/shoot"
+            android:layout_width="100sp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="50sp"
+            android:backgroundTint="@color/deactivatedButton"
+            android:textAlignment="center"
+            android:gravity="center|fill_horizontal"
+            android:textColor="@android:color/white"
+            />
+    </LinearLayout>
+
+    <!-- Controls the android top bar -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="true">
-
         <LinearLayout
             android:id="@+id/fullscreen_content_controls"
             style="?metaButtonBarStyle"
@@ -34,15 +70,8 @@
             android:layout_gravity="bottom|center_horizontal"
             android:background="@color/black_overlay"
             android:orientation="horizontal"
-            tools:ignore="UselessParent">
-
-            <Button
-                android:id="@+id/dummy_button"
-                style="?metaButtonBarButtonStyle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/dummy_button" />
+            tools:ignore="UselessParent"
+            >
 
         </LinearLayout>
     </FrameLayout>

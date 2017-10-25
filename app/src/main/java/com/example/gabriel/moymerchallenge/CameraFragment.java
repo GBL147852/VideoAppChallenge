@@ -122,6 +122,10 @@ public class CameraFragment extends Fragment
     // The video recorder which will output our video
     private MediaRecorder videoRecorder;
 
+    //Handlers for swiping
+    private float x0, x1;
+    private final static float MIN_SWIPE = 100;
+
     // The video absolute path inside the phone
     private String mNextVideoAbsolutePath;
 
@@ -236,6 +240,16 @@ public class CameraFragment extends Fragment
             }
         });
 
+        // Setting up Feed Button objective
+        mFeed.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                Intent goToFeed = new Intent(getActivity(), FeedActivity.class);
+                startActivity(goToFeed);
+                getActivity().finish();
+            }
+        });
+
         // Setting up "hold to record, release to stop" feature
         mRecordingFAB.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -262,6 +276,31 @@ public class CameraFragment extends Fragment
         } else {
             mTextureView.setSurfaceTextureListener(surfaceTextureListener);
         }
+
+        mTextureView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()){
+                    case MotionEvent.ACTION_DOWN:
+                        x0 = event.getX();
+                        break;
+                    case MotionEvent.ACTION_UP:
+                        x1 = event.getX();
+                        float deltaX = x1 - x0;
+                        if(Math.abs(deltaX) > MIN_SWIPE){
+                            //If swipe left
+                            if(deltaX > 0){
+                                Intent goToFeed = new Intent(getActivity().getApplicationContext(),
+                                                            FeedActivity.class);
+                                startActivity(goToFeed);
+                                getActivity().finish();
+                            }
+                        }
+                        break;
+                }
+                return true;
+            }
+        });
     }
 
     // Function for Rotate Camera button. Changes from front camera to back camera and vice-versa.

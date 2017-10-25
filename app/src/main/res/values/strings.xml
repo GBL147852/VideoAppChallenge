@@ -15,4 +15,5 @@
     <string name="dummy_content">DUMMY\nCONTENT</string>
 
     <string name="title_activity_feed">FeedActivity</string>
+    <string name="swipe_info">Swipe up to next video. Swipe down to previous video.</string>
 </resources>
