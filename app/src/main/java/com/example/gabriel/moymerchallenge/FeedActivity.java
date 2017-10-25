@@ -23,6 +23,7 @@ import android.widget.VideoView;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -114,14 +115,15 @@ public class FeedActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_feed);
 
+        //Getting containers ID and Views
         mVisible = true;
         mControlsView = findViewById(R.id.fullscreen_content_controls);
         mContentView = findViewById(R.id.video_view);
         mVideoView = (VideoView) mContentView;
 
+        //Setting shoot button function
         findViewById(R.id.buttonShoot).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -131,15 +133,19 @@ public class FeedActivity extends AppCompatActivity {
             }
         });
 
+        // Getting saved videos path and getting the right order (from newer to older)
         videoPathList = new ArrayList<>();
         File dir = getApplicationContext().getExternalFilesDir(null);
         for(File f: dir.listFiles()){
             if(f.isFile())
                 videoPathList.add(f.getAbsolutePath());
         }
+        Collections.reverse(videoPathList);
+
         if(videoPathList.size() > 0) {
-            mVideoView.setVideoURI(Uri.parse(videoPathList.get(0)));
+            // Getting last saved video
             videoID = 0;
+            mVideoView.setVideoURI(Uri.parse(videoPathList.get(videoID)));
             mVideoView.start();
 
             //Swipe detection, using y axis
@@ -157,15 +163,15 @@ public class FeedActivity extends AppCompatActivity {
                             float deltaY = y1 - y0;
                             float deltaX = x1 - x0;
                             if(Math.abs(deltaY) > MIN_SWIPE){
-                                //Swipe down
+                                //If swipe down, go to previous video
                                 if(deltaY > 0){
                                     previousVideo();
-                                //Swipe Up
+                                //If swipe Up, go to next video
                                 }else{
                                     nextVideo();
                                 }
                             }else if(Math.abs(deltaX) > MIN_SWIPE){
-                                //Swipe right
+                                //If swipe right, go to ShootActivity
                                 if(deltaX < 0){
                                     Intent goToShoot = new Intent(getApplicationContext(), ShootActivity.class);
                                     startActivity(goToShoot);
@@ -177,7 +183,6 @@ public class FeedActivity extends AppCompatActivity {
                     return true;
                 }
             });
-
             // Enables Looping
             mVideoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
@@ -185,11 +190,10 @@ public class FeedActivity extends AppCompatActivity {
                     mp.setLooping(true);
                 }
             });
-
-
         }
     }
 
+    // Jumps to the next video
     private void nextVideo(){
         if(videoID < videoPathList.size()-1) {
             mVideoView.pause();
@@ -200,6 +204,7 @@ public class FeedActivity extends AppCompatActivity {
         }
     }
 
+    // Jumps to the previous video
     private void previousVideo(){
         if(videoID > 0) {
             mVideoView.pause();

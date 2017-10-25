@@ -229,6 +229,7 @@ public class CameraFragment extends Fragment
         mFeed = getActivity().findViewById(R.id.buttonFeed);
         mRotate = getActivity().findViewById(R.id.buttonRotate);
 
+        //Bring the navigation buttons to the front of the camera
         getActivity().findViewById(R.id.buttonContainer).bringToFront();
         getActivity().findViewById(R.id.rotateContainer).bringToFront();
 
@@ -271,12 +272,14 @@ public class CameraFragment extends Fragment
             }
         });
 
+        //Check if the TextureView is available for opening the Preview Camera
         if (mTextureView.isAvailable()) {
             openCamera(mTextureView.getWidth(), mTextureView.getHeight());
         } else {
             mTextureView.setSurfaceTextureListener(surfaceTextureListener);
         }
 
+        //Setting up the swipe listener for the Camera Preview
         mTextureView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -288,7 +291,7 @@ public class CameraFragment extends Fragment
                         x1 = event.getX();
                         float deltaX = x1 - x0;
                         if(Math.abs(deltaX) > MIN_SWIPE){
-                            //If swipe left
+                            //If swipe left, go to FeedActivity
                             if(deltaX > 0){
                                 Intent goToFeed = new Intent(getActivity().getApplicationContext(),
                                                             FeedActivity.class);
